@@ -8,6 +8,33 @@ const sequelize = new Sequelize(
     host: process.env.DB_HOST,
     dialect: 'mariadb',
     logging: false,
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    },
+    dialectOptions: {
+      connectTimeout: 60000
+    },
+    retry: {
+      match: [
+        /ETIMEDOUT/,
+        /ECONNRESET/,
+        /ECONNREFUSED/,
+        /ESOCKETTIMEDOUT/,
+        /EHOSTUNREACH/,
+        /EPIPE/,
+        /EAI_AGAIN/,
+        /SequelizeConnectionError/,
+        /SequelizeConnectionRefusedError/,
+        /SequelizeHostNotFoundError/,
+        /SequelizeHostNotReachableError/,
+        /SequelizeInvalidConnectionError/,
+        /SequelizeConnectionTimedOutError/
+      ],
+      max: 5
+    }
   }
 );
 
