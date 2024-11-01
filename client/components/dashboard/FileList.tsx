@@ -38,7 +38,8 @@ export default function FileList({
   const handleShare = async (fileId: number) => {
     try {
       const response = await api.post(`/files/${fileId}/share`);
-      const shareUrl = `${window.location.origin}/shared/${response.data.share_link}`;
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+      const shareUrl = `${apiUrl}/api/files/shared/${response.data.share_link}`;
       setCurrentShareLink(shareUrl);
       setShareModalOpen(true);
     } catch (error) {

@@ -96,25 +96,26 @@ const fileController = {
     try {
       const fileId = req.params.id;
       const file = await File.findOne({
-        where: {
-          id: fileId,
-          user_id: req.user.id,
-        },
+        where: { id: fileId, user_id: req.user.id },
       });
 
       if (!file) {
         return res.status(404).json({ message: "Fichier non trouvé" });
       }
 
-      // Générer un nouveau lien de partage s'il n'existe pas
-      if (!file.share_link) {
-        const shareLink = uuidv4();
-        await file.update({ share_link: shareLink });
-      }
+      // Générer un nouveau lien de partage
+      const shareLink = uuidv4();
+      const shareExpiration = new Date();
+      shareExpiration.setDate(shareExpiration.getDate() + 7); // Expire dans 7 jours
+
+      await file.update({
+        share_link: shareLink,
+        share_expiration: shareExpiration,
+      });
 
       res.json({
         message: "Lien de partage généré avec succès",
-        share_link: file.share_link,
+        share_link: shareLink,
       });
     } catch (error) {
       console.error("Share file error:", error);
@@ -128,6 +129,8 @@ const fileController = {
   async downloadSharedFile(req, res) {
     try {
       const shareLink = req.params.shareLink;
+      console.log("Attempting to download file with share link:", shareLink);
+
       const file = await File.findOne({
         where: {
           share_link: shareLink,
@@ -138,11 +141,13 @@ const fileController = {
       });
 
       if (!file) {
+        console.log("File not found or expired for share link:", shareLink);
         return res.status(404).json({
           message: "Fichier non trouvé ou lien expiré",
         });
       }
 
+      console.log("File found, sending:", file.original_name);
       res.download(file.path, file.original_name);
     } catch (error) {
       console.error("Download shared file error:", error);
