@@ -1,6 +1,13 @@
-const sequelize = require('../config/database');
-const User = require('./User');
-const File = require('./File');
+const { Sequelize } = require('sequelize');
+const config = require('../config/database');
+const UserModel = require('./User');
+const FileModel = require('./File');
+
+const sequelize = new Sequelize(config.development);
+
+// Initialiser les modèles
+const User = UserModel(sequelize);
+const File = FileModel(sequelize);
 
 // Définition des relations
 File.belongsTo(User, {
@@ -13,7 +20,6 @@ User.hasMany(File, {
   as: 'files'
 });
 
-// Synchronisation des modèles avec la base de données
 const initDb = async () => {
   try {
     await sequelize.authenticate();
@@ -23,7 +29,7 @@ const initDb = async () => {
     console.log('Database synchronized');
   } catch (error) {
     console.error('Unable to connect to the database:', error);
-    throw error;
+    process.exit(1);
   }
 };
 

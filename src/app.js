@@ -7,6 +7,7 @@ require('dotenv').config();
 const { initDb } = require('./models');
 const authRoutes = require('./routes/authRoutes');
 const fileRoutes = require('./routes/fileRoutes');
+const healthRoutes = require('./routes/health');
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Routes
+app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/files', fileRoutes);
 
