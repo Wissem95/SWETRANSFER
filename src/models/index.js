@@ -23,7 +23,7 @@ const initDb = async () => {
     console.log('Database synchronized');
   } catch (error) {
     console.error('Unable to connect to the database:', error);
-    process.exit(1); // Arrêter le processus en cas d'erreur
+    throw error;
   }
 };
 

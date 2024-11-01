@@ -6,6 +6,7 @@ require('dotenv').config();
 
 const { initDb } = require('./models');
 const authRoutes = require('./routes/authRoutes');
+const fileRoutes = require('./routes/fileRoutes');
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/files', fileRoutes);
 
 // Route de test
 app.get('/', (req, res) => {
