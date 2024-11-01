@@ -1,15 +1,9 @@
-const { Sequelize } = require('sequelize');
-const config = require('../config/database');
-const UserModel = require('./User');
-const FileModel = require('./File');
+// models/index.js
+const sequelize = require('../config/database');
+const User = require('./User');
+const File = require('./File');
 
-const sequelize = new Sequelize(config.development);
-
-// Initialiser les modèles
-const User = UserModel(sequelize);
-const File = FileModel(sequelize);
-
-// Définition des relations
+// Les relations restent les mêmes
 File.belongsTo(User, {
   foreignKey: 'user_id',
   as: 'owner'
@@ -24,7 +18,7 @@ const initDb = async () => {
   try {
     await sequelize.authenticate();
     console.log('Connection to database has been established successfully.');
-    
+
     await sequelize.sync({ alter: true });
     console.log('Database synchronized');
   } catch (error) {
