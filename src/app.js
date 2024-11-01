@@ -5,6 +5,7 @@ const path = require('path');
 require('dotenv').config();
 
 const { initDb } = require('./models');
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 
@@ -16,6 +17,9 @@ app.use(express.urlencoded({ extended: true }));
 
 // Dossier pour les fichiers uploadés
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Routes
+app.use('/api/auth', authRoutes);
 
 // Route de test
 app.get('/', (req, res) => {
