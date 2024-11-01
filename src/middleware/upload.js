@@ -1,10 +1,9 @@
-const multer = require('multer');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-const fs = require('fs');
+const multer = require("multer");
+const path = require("path");
+const { v4: uuidv4 } = require("uuid");
+const fs = require("fs");
 
-// Créer le dossier uploads s'il n'existe pas
-const uploadDir = path.join(__dirname, '../../uploads');
+const uploadDir = path.join(__dirname, "../../uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -16,28 +15,46 @@ const storage = multer.diskStorage({
   filename: function (req, file, cb) {
     const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
     cb(null, uniqueName);
-  }
+  },
 });
-
-const fileFilter = (req, file, cb) => {
-  // Vérifier l'espace de stockage disponible
-  const user = req.user;
-  const fileSize = parseInt(req.headers['content-length']);
-  
-  if (user.storage_used + fileSize > user.storage_limit) {
-    cb(new Error('Storage limit exceeded'), false);
-    return;
-  }
-  
-  cb(null, true);
-};
 
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 100 * 1024 * 1024 // Limite à 100MB par fichier
+    fileSize: 2 * 1024 * 1024 * 1024, // 2GB
+    fieldSize: 2 * 1024 * 1024 * 1024, // 2GB
   },
-  fileFilter: fileFilter
-});
+}).single("file");
 
-module.exports = upload;
+// Wrapper personnalisé pour une meilleure gestion des erreurs
+const uploadMiddleware = (req, res, next) => {
+  upload(req, res, function (err) {
+    if (err instanceof multer.MulterError) {
+      console.error("Multer error:", err);
+      return res.status(400).json({
+        message: "Erreur lors du téléchargement",
+        error: err.message,
+      });
+    } else if (err) {
+      console.error("Upload error:", err);
+      return res.status(400).json({
+        message: "Erreur lors du téléchargement",
+        error: err.message,
+      });
+    }
+
+    // Vérification de l'espace de stockage
+    const user = req.user;
+    const fileSize = req.file ? req.file.size : 0;
+
+    if (user.storage_used + fileSize > user.storage_limit) {
+      return res.status(400).json({
+        message: "Limite de stockage dépassée",
+      });
+    }
+
+    next();
+  });
+};
+
+module.exports = uploadMiddleware;

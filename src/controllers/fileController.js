@@ -1,16 +1,25 @@
-const { File, User } = require('../models');
-const path = require('path');
-const fs = require('fs').promises;
-const { v4: uuidv4 } = require('uuid');
-const { Op } = require('sequelize');
+const { File, User } = require("../models");
+const path = require("path");
+const fs = require("fs").promises;
+const { v4: uuidv4 } = require("uuid");
+const { Op } = require("sequelize");
 
 const fileController = {
   // Upload d'un fichier
   async uploadFile(req, res) {
     try {
+      console.log("Starting file upload process...");
+
       if (!req.file) {
-        return res.status(400).json({ message: 'No file uploaded' });
+        console.error("No file received in request");
+        return res.status(400).json({ message: "Aucun fichier reçu" });
       }
+
+      console.log("File details:", {
+        originalName: req.file.originalname,
+        size: req.file.size,
+        mimeType: req.file.mimetype,
+      });
 
       const file = await File.create({
         original_name: req.file.originalname,
@@ -18,48 +27,66 @@ const fileController = {
         mime_type: req.file.mimetype,
         size: req.file.size,
         path: req.file.path,
-        user_id: req.user.id
+        user_id: req.user.id,
       });
 
-      // Mettre à jour l'espace utilisé
-      await User.increment('storage_used', {
+      await User.increment("storage_used", {
         by: req.file.size,
-        where: { id: req.user.id }
+        where: { id: req.user.id },
       });
 
       res.status(201).json({
-        message: 'File uploaded successfully',
+        message: "Fichier téléchargé avec succès",
         file: {
           id: file.id,
           original_name: file.original_name,
           size: file.size,
-          mime_type: file.mime_type
-        }
+          mime_type: file.mime_type,
+        },
       });
     } catch (error) {
-      console.error('Upload error:', error);
-      res.status(500).json({ message: 'Error uploading file' });
+      console.error("Detailed upload error:", error);
+      if (req.file) {
+        try {
+          await fs.unlink(req.file.path);
+        } catch (unlinkError) {
+          console.error("Error removing file:", unlinkError);
+        }
+      }
+      res.status(500).json({
+        message: "Erreur lors du téléchargement du fichier",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
     }
   },
 
   // Liste des fichiers de l'utilisateur
   async listFiles(req, res) {
     try {
-      console.log('Listing files for user:', req.user.id);
+      console.log("Listing files for user:", req.user.id);
 
       const files = await File.findAll({
         where: { user_id: req.user.id },
-        attributes: ['id', 'original_name', 'size', 'mime_type', 'createdAt', 'share_link']
+        attributes: [
+          "id",
+          "original_name",
+          "size",
+          "mime_type",
+          "createdAt",
+          "share_link",
+        ],
       });
 
-      console.log('Found files:', files);
+      console.log("Found files:", files);
 
       res.json({ files });
     } catch (error) {
-      console.error('List files detailed error:', error);
-      res.status(500).json({ 
-        message: 'Error listing files',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      console.error("List files detailed error:", error);
+      res.status(500).json({
+        message: "Error listing files",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       });
     }
   },
@@ -67,56 +94,61 @@ const fileController = {
   // Générer un lien de partage
   async shareFile(req, res) {
     try {
-      const { id } = req.params;
+      const fileId = req.params.id;
       const file = await File.findOne({
-        where: { id, user_id: req.user.id }
+        where: {
+          id: fileId,
+          user_id: req.user.id,
+        },
       });
 
       if (!file) {
-        return res.status(404).json({ message: 'File not found' });
+        return res.status(404).json({ message: "Fichier non trouvé" });
       }
 
-      const shareLink = uuidv4();
-      const expiryDate = new Date();
-      expiryDate.setDate(expiryDate.getDate() + 7);
+      // Générer un nouveau lien de partage s'il n'existe pas
+      if (!file.share_link) {
+        const shareLink = uuidv4();
+        await file.update({ share_link: shareLink });
+      }
 
-      await file.update({
-        share_link: shareLink,
-        share_link_expiry: expiryDate
-      });
-
-      const baseUrl = process.env.API_URL || 'http://localhost:3000';
       res.json({
-        message: 'Share link generated',
-        share_link: `${baseUrl}/api/files/shared/${shareLink}`
+        message: "Lien de partage généré avec succès",
+        share_link: file.share_link,
       });
     } catch (error) {
-      console.error('Share file error:', error);
-      res.status(500).json({ message: 'Error sharing file' });
+      console.error("Share file error:", error);
+      res
+        .status(500)
+        .json({ message: "Erreur lors de la génération du lien de partage" });
     }
   },
 
   // Télécharger un fichier partagé
   async downloadSharedFile(req, res) {
     try {
-      const { shareLink } = req.params;
+      const shareLink = req.params.shareLink;
       const file = await File.findOne({
         where: {
           share_link: shareLink,
-          share_link_expiry: {
-            [Op.gt]: new Date()
-          }
-        }
+          share_expiration: {
+            [Op.gt]: new Date(), // Vérifie que le lien n'a pas expiré
+          },
+        },
       });
 
       if (!file) {
-        return res.status(404).json({ message: 'File not found or link expired' });
+        return res.status(404).json({
+          message: "Fichier non trouvé ou lien expiré",
+        });
       }
 
       res.download(file.path, file.original_name);
     } catch (error) {
-      console.error('Download error:', error);
-      res.status(500).json({ message: 'Error downloading file' });
+      console.error("Download shared file error:", error);
+      res.status(500).json({
+        message: "Erreur lors du téléchargement du fichier",
+      });
     }
   },
 
@@ -125,31 +157,31 @@ const fileController = {
     try {
       const { id } = req.params;
       const file = await File.findOne({
-        where: { id, user_id: req.user.id }
+        where: { id, user_id: req.user.id },
       });
 
       if (!file) {
-        return res.status(404).json({ message: 'File not found' });
+        return res.status(404).json({ message: "File not found" });
       }
 
       // Supprimer le fichier physique
       await fs.unlink(file.path);
 
       // Mettre à jour l'espace utilisé
-      await User.decrement('storage_used', {
+      await User.decrement("storage_used", {
         by: file.size,
-        where: { id: req.user.id }
+        where: { id: req.user.id },
       });
 
       // Supprimer l'entrée en base
       await file.destroy();
 
-      res.json({ message: 'File deleted successfully' });
+      res.json({ message: "File deleted successfully" });
     } catch (error) {
-      console.error('Delete file error:', error);
-      res.status(500).json({ message: 'Error deleting file' });
+      console.error("Delete file error:", error);
+      res.status(500).json({ message: "Error deleting file" });
     }
-  }
+  },
 };
 
 module.exports = fileController;

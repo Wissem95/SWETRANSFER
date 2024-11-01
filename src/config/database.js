@@ -1,4 +1,4 @@
-const { Sequelize } = require('sequelize');
+const { Sequelize } = require("sequelize");
 
 const sequelize = new Sequelize(
   process.env.DB_NAME,
@@ -6,35 +6,17 @@ const sequelize = new Sequelize(
   process.env.DB_PASSWORD,
   {
     host: process.env.DB_HOST,
-    dialect: 'mariadb',
+    dialect: "mariadb",
     logging: false,
     pool: {
       max: 5,
       min: 0,
       acquire: 30000,
-      idle: 10000
+      idle: 10000,
     },
     dialectOptions: {
-      connectTimeout: 60000
+      connectTimeout: 60000,
     },
-    retry: {
-      match: [
-        /ETIMEDOUT/,
-        /ECONNRESET/,
-        /ECONNREFUSED/,
-        /ESOCKETTIMEDOUT/,
-        /EHOSTUNREACH/,
-        /EPIPE/,
-        /EAI_AGAIN/,
-        /SequelizeConnectionError/,
-        /SequelizeConnectionRefusedError/,
-        /SequelizeHostNotFoundError/,
-        /SequelizeHostNotReachableError/,
-        /SequelizeInvalidConnectionError/,
-        /SequelizeConnectionTimedOutError/
-      ],
-      max: 5
-    }
   }
 );
 
